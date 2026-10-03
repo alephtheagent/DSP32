@@ -17,6 +17,8 @@ extern "C" {
 enum {
     ITF_NUM_AUDIO_CONTROL = 0,
     ITF_NUM_AUDIO_STREAMING,
+    ITF_NUM_CDC_CONTROL,
+    ITF_NUM_CDC_DATA,
     ITF_NUM_TOTAL
 };
 
@@ -27,11 +29,12 @@ enum {
 
 // Endpoints
 #define EPNUM_AUDIO_OUT                 0x01
+#define EPNUM_CDC_NOTIF                 0x82
+#define EPNUM_CDC_OUT                   0x03
+#define EPNUM_CDC_IN                    0x83
 
-// Configuration Descriptor Length
-// 9 (Cfg) + 8 (IAD) + 9 (AC) + 9 (CS AC Hdr) + 12 (In Term) + 10 (FU) + 9 (Out Term)
-// + 9 (AS Alt0) + 9 (AS Alt1) + 7 (CS AS Gen) + 14 (Type I) + 9 (EP) + 7 (CS EP) = 121
-#define UAC1_CONFIG_DESC_LEN            121
+// Configuration Descriptor Length (Audio UAC 1.0 = 121 + CDC ACM = 66)
+#define TOTAL_CONFIG_DESC_LEN           (121 + TUD_CDC_DESC_LEN)
 
 void usb_descriptors_init(void);
 

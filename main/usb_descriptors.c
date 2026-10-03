@@ -31,12 +31,12 @@ uint8_t const *tud_descriptor_device_cb(void)
     return (uint8_t const *)&desc_device;
 }
 
-// UAC 1.0 Full-Speed Configuration Descriptor (121 bytes)
-static const uint8_t desc_fs_configuration[UAC1_CONFIG_DESC_LEN] = {
+// Configuration Descriptor (187 bytes: 121 Audio + 66 CDC ACM)
+static const uint8_t desc_fs_configuration[TOTAL_CONFIG_DESC_LEN] = {
     // 1. Configuration Descriptor (9 bytes)
     9, TUSB_DESC_CONFIGURATION,
-    U16_TO_U8S_LE(UAC1_CONFIG_DESC_LEN),
-    2,                  // bNumInterfaces = 2 (Control + Streaming)
+    U16_TO_U8S_LE(TOTAL_CONFIG_DESC_LEN),
+    ITF_NUM_TOTAL,      // bNumInterfaces = 4 (Audio Control + Streaming + CDC Control + CDC Data)
     1,                  // bConfigurationValue = 1
     0,                  // iConfiguration = 0
     0xC0,               // bmAttributes: Self-powered
@@ -152,7 +152,10 @@ static const uint8_t desc_fs_configuration[UAC1_CONFIG_DESC_LEN] = {
     0x01,               // bDescriptorSubtype = EP_GENERAL (0x01)
     0x01,               // bmAttributes = bit 0: Sampling Frequency Control
     0,                  // bLockDelayUnits = 0
-    U16_TO_U8S_LE(0x0000) // wLockDelay = 0
+    U16_TO_U8S_LE(0x0000), // wLockDelay = 0
+
+    // 14. CDC ACM Interface Association & Control/Data Descriptors (66 bytes)
+    TUD_CDC_DESCRIPTOR(ITF_NUM_CDC_CONTROL, 6, EPNUM_CDC_NOTIF, 8, EPNUM_CDC_OUT, EPNUM_CDC_IN, 64)
 };
 
 uint8_t const *tud_descriptor_configuration_cb(uint8_t index)
@@ -169,6 +172,7 @@ static char const *string_desc_arr[] = {
     "DSP32-S3-001",                  // 3: Serial
     "DSP32 Audio Control",           // 4: Audio Control Interface
     "16-bit 48kHz Stereo",           // 5: Audio Streaming Interface
+    "DSP32 Serial Control",          // 6: CDC Serial CLI Interface
 };
 
 static uint16_t _desc_str[64];
