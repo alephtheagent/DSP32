@@ -1,11 +1,13 @@
-name: Build ESP32-S3 Firmware
+name: Build & Release ESP32-S3 Firmware
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main ]
     tags: [ 'v*' ]
   pull_request:
-    branches: [ main, master ]
+    branches: [ main ]
+  release:
+    types: [ published ]
   workflow_dispatch:
 
 permissions:
@@ -33,52 +35,52 @@ jobs:
           . $IDF_PATH/export.sh
           idf.py build
 
-      - name: Create merged binary & OTA image
+      - name: Package release binaries (Merged & OTA)
         run: |
           . $IDF_PATH/export.sh
+          mkdir -p dist
+          # 1. Generate single merged binary for offset 0x0 flashing
           python -m esptool --chip esp32s3 merge_bin \
-            -o build/merged_firmware.bin \
+            -o dist/merged_firmware.bin \
             --flash_mode dio --flash_size 4MB --flash_freq 80m \
             0x0 build/bootloader/bootloader.bin \
             0x8000 build/partition_table/partition-table.bin \
             0xe000 build/ota_data_initial.bin \
             0x10000 build/esp32s3_usb_dac.bin
-          cp build/esp32s3_usb_dac.bin build/firmware_ota.bin
 
-      - name: Upload build artifacts
+          # 2. Copy OTA binary for Web UI update (/ota.html)
+          cp build/esp32s3_usb_dac.bin dist/firmware_ota.bin
+
+          # 3. Copy individual partition files
+          cp build/bootloader/bootloader.bin dist/bootloader.bin
+          cp build/partition_table/partition-table.bin dist/partition-table.bin
+          cp build/ota_data_initial.bin dist/ota_data_initial.bin
+
+      - name: Upload firmware artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: esp32s3-dsp-firmware
-          path: |
-            build/merged_firmware.bin
-            build/firmware_ota.bin
-            build/bootloader/bootloader.bin
-            build/partition_table/partition-table.bin
-            build/ota_data_initial.bin
-            build/esp32s3_usb_dac.bin
-            build/esp32s3_usb_dac.elf
-            build/esp32s3_usb_dac.map
+          name: esp32s3-firmware
+          path: dist/
 
   release:
-    name: Create GitHub Release
+    name: Publish GitHub Release
     needs: build
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release'
     runs-on: ubuntu-latest
     steps:
-      - name: Download build artifacts
+      - name: Download firmware binaries
         uses: actions/download-artifact@v4
         with:
-          name: esp32s3-dsp-firmware
-          path: artifacts
+          name: esp32s3-firmware
+          path: dist
 
-      - name: Publish GitHub Release
+      - name: Attach binaries to Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            artifacts/merged_firmware.bin
-            artifacts/firmware_ota.bin
-            artifacts/bootloader.bin
-            artifacts/partition-table.bin
-            artifacts/ota_data_initial.bin
-            artifacts/esp32s3_usb_dac.bin
+            dist/merged_firmware.bin
+            dist/firmware_ota.bin
+            dist/bootloader.bin
+            dist/partition-table.bin
+            dist/ota_data_initial.bin
           generate_release_notes: true
