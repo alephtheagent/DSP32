@@ -1,0 +1,65 @@
+idf_component_register(
+    SRCS
+        "main.c"
+        "usb_descriptors.c"
+        "usb_audio.c"
+        "i2s_dac.c"
+        "audio_pipeline.c"
+        "dsp/dsp_biquad.c"
+        "dsp/dsp_eq.c"
+        "dsp/dsp_compressor.c"
+        "dsp/dsp_limiter.c"
+        "dsp/dsp_loudness.c"
+        "dsp/dsp_pitch.c"
+        "dsp/dsp_deesser.c"
+        "dsp/dsp_crossfeed.c"
+        "dsp/dsp_stereo_widener.c"
+        "dsp/dsp_tube_warmth.c"
+        "dsp/dsp_bass_enhancer.c"
+        "dsp/dsp_reverb_delay.c"
+        "dsp/dsp_meter.c"
+        "dsp/dsp_engine.c"
+        "storage/preset_manager.c"
+        "storage/hw_config.c"
+        "storage/fs_manager.c"
+        "ota/ota_manager.c"
+        "wifi/wifi_ap.c"
+        "wifi/dns_captive.c"
+        "web/web_server.c"
+        "cli/serial_cli.c"
+        "button/boot_button.c"
+        "led/neopixel.c"
+    INCLUDE_DIRS
+        "."
+        "dsp"
+        "storage"
+        "ota"
+        "wifi"
+        "web"
+        "cli"
+        "button"
+        "led"
+    REQUIRES
+        esp_driver_i2s
+        esp_driver_gpio
+        esp_driver_rmt
+        esp_wifi
+        esp_http_server
+        esp_netif
+        esp_event
+        nvs_flash
+        esp_timer
+        freertos
+        esp_ringbuf
+        usb
+        json
+        lwip
+        espressif__tinyusb
+        espressif__mdns
+        littlefs
+        app_update
+)
+
+idf_component_get_property(tusb_lib espressif__tinyusb COMPONENT_LIB)
+target_include_directories(${tusb_lib} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+target_link_libraries(${COMPONENT_LIB} INTERFACE "-u tud_descriptor_device_cb" "-u tud_descriptor_configuration_cb" "-u tud_descriptor_string_cb")
