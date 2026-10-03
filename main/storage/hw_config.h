@@ -21,6 +21,8 @@ extern "C" {
 #define HW_DEFAULT_I2S_WS_PIN      12
 #define HW_DEFAULT_NEOPIXEL_PIN    48
 #define HW_DEFAULT_BOOT_BUTTON_PIN 0
+#define HW_DEFAULT_OLED_SCL_PIN    9
+#define HW_DEFAULT_OLED_SDA_PIN    8
 #define HW_DEFAULT_WIFI_SSID       "ESP32-DSP-DAC"
 #define HW_DEFAULT_WIFI_PASS       "12345678"
 #define HW_DEFAULT_WIFI_CHANNEL    1
@@ -31,6 +33,8 @@ typedef struct {
     int8_t i2s_ws_gpio;
     int8_t neopixel_gpio;
     int8_t boot_button_gpio;
+    int8_t oled_scl_gpio;
+    int8_t oled_sda_gpio;
     char wifi_ssid[32];
     char wifi_pass[64];
     uint8_t wifi_channel;

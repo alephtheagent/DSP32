@@ -81,12 +81,12 @@ Production-grade USB Audio Class (UAC 2.0) digital-to-analog converter and real-
 6. **De-Esser**: Sidechain bandpass filter (4 kHz - 9 kHz) that dynamically compresses harsh sibilant vocal spikes.
 7. **Headphone Crossfeed**: Bauer/Meier binaural head model blending delayed (~280us) low-pass filtered opposite channel to eliminate headphone listening fatigue.
 8. **Mid-Side Stereo Widener**: Controls spatial soundstage width (0% mono to 200% ultra-wide).
-9. **Tube Warmth / Tape Saturation**: Asymmetric soft-clipping polynomial generating 2nd harmonic (warm triode tube) and 3rd harmonic (punchy tape) with DC-blocking high-pass filter.
+9. **Cassette Tape Emulator**: Physically modeled vintage magnetic tape simulation featuring asymmetric magnetic hysteresis saturation, lo-fi frequency degradation (head gap loss HF roll-off 4-20 kHz and 65 Hz head bump), IEC shaped tape hiss, random soft clicks/pops, and mechanical wow & flutter warble.
 10. **Psychoacoustic Bass Enhancer**: Generates upper harmonics of sub-bass frequencies (<100 Hz), allowing small headphones or drivers to perceive deep sub-bass via the "missing fundamental" effect.
 11. **Ping-Pong Delay & Freeverb**:
     - Ping-pong stereo alternating delay line (up to 1000ms in PSRAM).
     - 8-comb / 4-allpass algorithmic Freeverb in PSRAM.
-12. **Preset Management**: Factory presets (Reference Flat, Warm Tube, Vocal Presence, Bass Booster, Binaural Crossfeed, Night Normalizer) + user presets stored in NVS flash.
+12. **Preset Management**: Factory presets (Reference Flat, Vintage Cassette, Vocal Presence, Bass Booster, Binaural Crossfeed, Night Normalizer) + user presets stored in NVS flash.
 
 ---
 
@@ -130,3 +130,19 @@ idf.py build
 # Flash and monitor
 idf.py -p /dev/ttyACM0 flash monitor
 ```
+
+---
+
+## 8. Continuous Integration & Releases (GitHub Actions)
+
+The repository includes automated CI/CD via GitHub Actions (`.github/workflows/build.yml`):
+
+- **Automated Builds**: Triggers on every `push` to `main`/`master`, all `pull_request` branches, and manual `workflow_dispatch`.
+- **Pre-packaged Artifacts**:
+  - `merged_firmware.bin` — Single unified binary containing bootloader, partition table, OTA data, and application. Flash in one command at offset `0x0`:
+    ```bash
+    esptool.py --chip esp32s3 -p /dev/ttyACM0 write_flash 0x0 merged_firmware.bin
+    ```
+  - `firmware_ota.bin` — Application image for OTA update via web UI (`/ota.html`).
+- **Automated Releases**: Pushing a version tag (e.g. `git tag v0.1 && git push origin v0.1`) automatically creates a GitHub Release and attaches all binaries.
+

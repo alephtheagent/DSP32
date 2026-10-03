@@ -13,6 +13,10 @@ void dsp_meter_init(dsp_meter_t *meter, float sample_rate)
     meter->in_rms_l = meter->in_rms_r = 0.0f;
     meter->out_peak_l = meter->out_peak_r = 0.0f;
     meter->out_rms_l = meter->out_rms_r = 0.0f;
+    meter->wave_idx = 0;
+    for (int i = 0; i < DSP_METER_WAVE_LEN; i++) {
+        meter->wave_buf[i] = 0.0f;
+    }
     // ~300ms release ballistics
     meter->decay_factor = expf(-1.0f / (0.300f * (meter->sample_rate / 64.0f)));
 }
@@ -82,6 +86,15 @@ void dsp_meter_update_output(dsp_meter_t *meter, const float *buf_l, const float
     meter->out_peak_r = (max_r > meter->out_peak_r) ? max_r : (meter->out_peak_r * decay);
     meter->out_rms_l = (rms_l > meter->out_rms_l) ? rms_l : (meter->out_rms_l * decay);
     meter->out_rms_r = (rms_r > meter->out_rms_r) ? rms_r : (meter->out_rms_r * decay);
+
+    // Capture mono waveform samples into rolling visualizer buffer
+    size_t step = (num_samples > DSP_METER_WAVE_LEN) ? (num_samples / DSP_METER_WAVE_LEN) : 1;
+    for (size_t i = 0; i < num_samples; i += step) {
+        meter->wave_buf[meter->wave_idx++] = (buf_l[i] + buf_r[i]) * 0.5f;
+        if (meter->wave_idx >= DSP_METER_WAVE_LEN) {
+            meter->wave_idx = 0;
+        }
+    }
 }
 
 void dsp_meter_update_pcm(dsp_meter_t *meter, const uint8_t *pcm, size_t bytes, uint8_t bit_depth)
@@ -97,6 +110,15 @@ void dsp_meter_update_pcm(dsp_meter_t *meter, const uint8_t *pcm, size_t bytes, 
     if (bit_depth == 16) {
         const int16_t *src = (const int16_t *)pcm;
         const float norm16 = 1.0f / 32768.0f;
+        size_t step = (num_samples > DSP_METER_WAVE_LEN) ? (num_samples / DSP_METER_WAVE_LEN) : 1;
+        for (size_t i = 0; i < num_samples; i += step) {
+            float l = (float)src[2 * i] * norm16;
+            float r = (float)src[2 * i + 1] * norm16;
+            meter->wave_buf[meter->wave_idx++] = (l + r) * 0.5f;
+            if (meter->wave_idx >= DSP_METER_WAVE_LEN) {
+                meter->wave_idx = 0;
+            }
+        }
         for (size_t i = 0; i < num_samples; i++) {
             float al = fabsf((float)src[2 * i] * norm16);
             float ar = fabsf((float)src[2 * i + 1] * norm16);
@@ -108,6 +130,15 @@ void dsp_meter_update_pcm(dsp_meter_t *meter, const uint8_t *pcm, size_t bytes, 
     } else {
         const int32_t *src = (const int32_t *)pcm;
         const float norm24 = 1.0f / 8388608.0f;
+        size_t step = (num_samples > DSP_METER_WAVE_LEN) ? (num_samples / DSP_METER_WAVE_LEN) : 1;
+        for (size_t i = 0; i < num_samples; i += step) {
+            float l = (float)(src[2 * i] >> 8) * norm24;
+            float r = (float)(src[2 * i + 1] >> 8) * norm24;
+            meter->wave_buf[meter->wave_idx++] = (l + r) * 0.5f;
+            if (meter->wave_idx >= DSP_METER_WAVE_LEN) {
+                meter->wave_idx = 0;
+            }
+        }
         for (size_t i = 0; i < num_samples; i++) {
             float al = fabsf((float)(src[2 * i] >> 8) * norm24);
             float ar = fabsf((float)(src[2 * i + 1] >> 8) * norm24);
@@ -145,4 +176,23 @@ void dsp_meter_get_values(dsp_meter_t *meter, dsp_meter_values_t *out_values)
     out_values->out_peak_r = lin_to_db(meter->out_peak_r);
     out_values->out_rms_l = lin_to_db(meter->out_rms_l);
     out_values->out_rms_r = lin_to_db(meter->out_rms_r);
+}
+
+void dsp_meter_get_waveform(dsp_meter_t *meter, float *out_samples, size_t count)
+{
+    if (!meter || !out_samples || count == 0) return;
+    if (count > DSP_METER_WAVE_LEN) count = DSP_METER_WAVE_LEN;
+
+    // Decay towards silence if idle/silent
+    if (meter->out_peak_l < 0.001f && meter->out_peak_r < 0.001f) {
+        for (size_t i = 0; i < DSP_METER_WAVE_LEN; i++) {
+            meter->wave_buf[i] *= 0.85f;
+        }
+    }
+
+    uint16_t start = meter->wave_idx;
+    for (size_t i = 0; i < count; i++) {
+        uint16_t idx = (start + i) % DSP_METER_WAVE_LEN;
+        out_samples[i] = meter->wave_buf[idx];
+    }
 }

@@ -86,9 +86,14 @@ typedef struct {
 
 typedef struct {
     bool enabled;
-    float drive;        // 0.0 to 1.0
-    float warmth;       // 0.0 (3rd odd tape) to 1.0 (2nd even tube)
-} dsp_tube_config_t;
+    float drive;            // Saturation & magnetic drive: 0.0 to 1.0
+    float hf_cut_hz;        // Lo-Fi high-frequency roll-off (gap loss): 4000 to 20000 Hz
+    float head_bump;        // Low-end magnetic head bump (65 Hz): 0.0 to 1.0
+    float hiss_level;       // Tape hiss noise floor: 0.0 to 1.0
+    float click_rate;       // Random soft tape clicks/pops rate: 0.0 to 1.0
+    float click_level;      // Tape clicks/pops amplitude: 0.0 to 1.0
+    float wow_flutter;      // Speed instability / pitch warble: 0.0 to 1.0
+} dsp_tape_config_t;
 
 typedef struct {
     bool enabled;
@@ -107,6 +112,18 @@ typedef struct {
     float reverb_damping;   // 0.0 to 1.0
     float reverb_mix;       // 0.0 to 1.0
 } dsp_reverb_delay_config_t;
+
+typedef struct {
+    bool enabled;               // Master Bitcrusher bypass
+    bool enable_downsample;     // Sample rate reduction toggle
+    bool enable_quantize;       // Bit depth reduction toggle
+    bool enable_overflow;       // Bit overflow / foldback distortion toggle
+    bool dither;                // TPDF dither for quantization
+    uint8_t bit_depth;          // 2 to 16 bits (default 8)
+    float downsample_rate;      // Target sample rate in Hz (500 to 48000 Hz, default 8000 Hz)
+    float overflow_intensity;   // 0.0 to 1.0 (multiplier / wrap depth)
+    float mix;                  // Wet/dry mix: 0.0 to 1.0 (default 1.0)
+} dsp_bitcrusher_config_t;
 
 typedef struct {
     float in_peak_l;
@@ -130,7 +147,8 @@ typedef struct {
     dsp_deesser_config_t deesser;
     dsp_crossfeed_config_t crossfeed;
     dsp_widener_config_t widener;
-    dsp_tube_config_t tube;
+    dsp_tape_config_t tape;
+    dsp_bitcrusher_config_t bitcrusher;
     dsp_bass_config_t bass;
     dsp_reverb_delay_config_t fx;
 } dsp_config_t;

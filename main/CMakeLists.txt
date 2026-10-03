@@ -14,7 +14,8 @@ idf_component_register(
         "dsp/dsp_deesser.c"
         "dsp/dsp_crossfeed.c"
         "dsp/dsp_stereo_widener.c"
-        "dsp/dsp_tube_warmth.c"
+        "dsp/dsp_tape.c"
+        "dsp/dsp_bitcrusher.c"
         "dsp/dsp_bass_enhancer.c"
         "dsp/dsp_reverb_delay.c"
         "dsp/dsp_meter.c"
@@ -29,6 +30,7 @@ idf_component_register(
         "cli/serial_cli.c"
         "button/boot_button.c"
         "led/neopixel.c"
+        "display/oled_display.c"
     INCLUDE_DIRS
         "."
         "dsp"
@@ -39,8 +41,10 @@ idf_component_register(
         "cli"
         "button"
         "led"
+        "display"
     REQUIRES
         esp_driver_i2s
+        esp_driver_i2c
         esp_driver_gpio
         esp_driver_rmt
         esp_wifi
@@ -58,6 +62,7 @@ idf_component_register(
         espressif__mdns
         littlefs
         app_update
+        nixy4__u8g2
 )
 
 idf_component_get_property(tusb_lib espressif__tinyusb COMPONENT_LIB)

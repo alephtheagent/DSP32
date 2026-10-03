@@ -30,6 +30,8 @@ const preset_entry_t *preset_manager_get_preset(size_t index);
 esp_err_t preset_manager_load(size_t index, dsp_config_t *out_config);
 esp_err_t preset_manager_save(size_t index, const char *name, const dsp_config_t *config);
 esp_err_t preset_manager_reset_defaults(void);
+void preset_manager_get_current_name(char *out_name, size_t max_len);
+void preset_manager_set_current_name(const char *name);
 
 #ifdef __cplusplus
 }

@@ -130,12 +130,30 @@ static esp_err_t api_config_get_handler(httpd_req_t *req)
     cJSON_AddNumberToObject(lim_obj, "release_ms", cfg.limiter.release_ms);
     cJSON_AddItemToObject(root, "limiter", lim_obj);
 
-    // Tube
-    cJSON *tube_obj = cJSON_CreateObject();
-    cJSON_AddBoolToObject(tube_obj, "enabled", cfg.tube.enabled);
-    cJSON_AddNumberToObject(tube_obj, "drive", cfg.tube.drive);
-    cJSON_AddNumberToObject(tube_obj, "warmth", cfg.tube.warmth);
-    cJSON_AddItemToObject(root, "tube", tube_obj);
+    // Cassette Tape Emulator
+    cJSON *tape_obj = cJSON_CreateObject();
+    cJSON_AddBoolToObject(tape_obj, "enabled", cfg.tape.enabled);
+    cJSON_AddNumberToObject(tape_obj, "drive", cfg.tape.drive);
+    cJSON_AddNumberToObject(tape_obj, "hf_cut_hz", cfg.tape.hf_cut_hz);
+    cJSON_AddNumberToObject(tape_obj, "head_bump", cfg.tape.head_bump);
+    cJSON_AddNumberToObject(tape_obj, "hiss_level", cfg.tape.hiss_level);
+    cJSON_AddNumberToObject(tape_obj, "click_rate", cfg.tape.click_rate);
+    cJSON_AddNumberToObject(tape_obj, "click_level", cfg.tape.click_level);
+    cJSON_AddNumberToObject(tape_obj, "wow_flutter", cfg.tape.wow_flutter);
+    cJSON_AddItemToObject(root, "tape", tape_obj);
+
+    // Bitcrusher / Downsampler
+    cJSON *bc_obj = cJSON_CreateObject();
+    cJSON_AddBoolToObject(bc_obj, "enabled", cfg.bitcrusher.enabled);
+    cJSON_AddBoolToObject(bc_obj, "enable_downsample", cfg.bitcrusher.enable_downsample);
+    cJSON_AddBoolToObject(bc_obj, "enable_quantize", cfg.bitcrusher.enable_quantize);
+    cJSON_AddBoolToObject(bc_obj, "enable_overflow", cfg.bitcrusher.enable_overflow);
+    cJSON_AddBoolToObject(bc_obj, "dither", cfg.bitcrusher.dither);
+    cJSON_AddNumberToObject(bc_obj, "bit_depth", cfg.bitcrusher.bit_depth);
+    cJSON_AddNumberToObject(bc_obj, "downsample_rate", cfg.bitcrusher.downsample_rate);
+    cJSON_AddNumberToObject(bc_obj, "overflow_intensity", cfg.bitcrusher.overflow_intensity);
+    cJSON_AddNumberToObject(bc_obj, "mix", cfg.bitcrusher.mix);
+    cJSON_AddItemToObject(root, "bitcrusher", bc_obj);
 
     // Crossfeed
     cJSON *cf_obj = cJSON_CreateObject();
@@ -288,15 +306,48 @@ static esp_err_t api_config_post_handler(httpd_req_t *req)
         if (rl) cfg.limiter.release_ms = (float)rl->valuedouble;
     }
 
-    // Tube Warmth
-    cJSON *tube_obj = cJSON_GetObjectItem(root, "tube");
-    if (tube_obj) {
-        cJSON *en = cJSON_GetObjectItem(tube_obj, "enabled");
-        if (en) cfg.tube.enabled = cJSON_IsTrue(en);
-        cJSON *dr = cJSON_GetObjectItem(tube_obj, "drive");
-        if (dr) cfg.tube.drive = (float)dr->valuedouble;
-        cJSON *wm = cJSON_GetObjectItem(tube_obj, "warmth");
-        if (wm) cfg.tube.warmth = (float)wm->valuedouble;
+    // Cassette Tape Emulator
+    cJSON *tape_obj = cJSON_GetObjectItem(root, "tape");
+    if (tape_obj) {
+        cJSON *en = cJSON_GetObjectItem(tape_obj, "enabled");
+        if (en) cfg.tape.enabled = cJSON_IsTrue(en);
+        cJSON *dr = cJSON_GetObjectItem(tape_obj, "drive");
+        if (dr) cfg.tape.drive = (float)dr->valuedouble;
+        cJSON *hf = cJSON_GetObjectItem(tape_obj, "hf_cut_hz");
+        if (hf) cfg.tape.hf_cut_hz = (float)hf->valuedouble;
+        cJSON *hb = cJSON_GetObjectItem(tape_obj, "head_bump");
+        if (hb) cfg.tape.head_bump = (float)hb->valuedouble;
+        cJSON *hs = cJSON_GetObjectItem(tape_obj, "hiss_level");
+        if (hs) cfg.tape.hiss_level = (float)hs->valuedouble;
+        cJSON *cr = cJSON_GetObjectItem(tape_obj, "click_rate");
+        if (cr) cfg.tape.click_rate = (float)cr->valuedouble;
+        cJSON *cl = cJSON_GetObjectItem(tape_obj, "click_level");
+        if (cl) cfg.tape.click_level = (float)cl->valuedouble;
+        cJSON *wf = cJSON_GetObjectItem(tape_obj, "wow_flutter");
+        if (wf) cfg.tape.wow_flutter = (float)wf->valuedouble;
+    }
+
+    // Bitcrusher / Downsampler
+    cJSON *bc_obj = cJSON_GetObjectItem(root, "bitcrusher");
+    if (bc_obj) {
+        cJSON *en = cJSON_GetObjectItem(bc_obj, "enabled");
+        if (en) cfg.bitcrusher.enabled = cJSON_IsTrue(en);
+        cJSON *ed = cJSON_GetObjectItem(bc_obj, "enable_downsample");
+        if (ed) cfg.bitcrusher.enable_downsample = cJSON_IsTrue(ed);
+        cJSON *eq = cJSON_GetObjectItem(bc_obj, "enable_quantize");
+        if (eq) cfg.bitcrusher.enable_quantize = cJSON_IsTrue(eq);
+        cJSON *eo = cJSON_GetObjectItem(bc_obj, "enable_overflow");
+        if (eo) cfg.bitcrusher.enable_overflow = cJSON_IsTrue(eo);
+        cJSON *dt = cJSON_GetObjectItem(bc_obj, "dither");
+        if (dt) cfg.bitcrusher.dither = cJSON_IsTrue(dt);
+        cJSON *bd = cJSON_GetObjectItem(bc_obj, "bit_depth");
+        if (bd) cfg.bitcrusher.bit_depth = (uint8_t)bd->valueint;
+        cJSON *ds = cJSON_GetObjectItem(bc_obj, "downsample_rate");
+        if (ds) cfg.bitcrusher.downsample_rate = (float)ds->valuedouble;
+        cJSON *oi = cJSON_GetObjectItem(bc_obj, "overflow_intensity");
+        if (oi) cfg.bitcrusher.overflow_intensity = (float)oi->valuedouble;
+        cJSON *mx = cJSON_GetObjectItem(bc_obj, "mix");
+        if (mx) cfg.bitcrusher.mix = (float)mx->valuedouble;
     }
 
     // Crossfeed
@@ -665,6 +716,8 @@ static esp_err_t api_preferences_get_handler(httpd_req_t *req)
     cJSON_AddNumberToObject(root, "i2s_bck_gpio", cfg->i2s_bck_gpio);
     cJSON_AddNumberToObject(root, "i2s_din_gpio", cfg->i2s_din_gpio);
     cJSON_AddNumberToObject(root, "i2s_ws_gpio", cfg->i2s_ws_gpio);
+    cJSON_AddNumberToObject(root, "oled_scl_gpio", cfg->oled_scl_gpio);
+    cJSON_AddNumberToObject(root, "oled_sda_gpio", cfg->oled_sda_gpio);
     cJSON_AddNumberToObject(root, "neopixel_gpio", cfg->neopixel_gpio);
     cJSON_AddNumberToObject(root, "boot_button_gpio", cfg->boot_button_gpio);
     cJSON_AddStringToObject(root, "wifi_ssid", cfg->wifi_ssid);
@@ -717,6 +770,8 @@ static esp_err_t api_preferences_post_handler(httpd_req_t *req)
     if ((item = cJSON_GetObjectItem(root, "i2s_bck_gpio")) && cJSON_IsNumber(item)) cfg.i2s_bck_gpio = (int8_t)item->valueint;
     if ((item = cJSON_GetObjectItem(root, "i2s_din_gpio")) && cJSON_IsNumber(item)) cfg.i2s_din_gpio = (int8_t)item->valueint;
     if ((item = cJSON_GetObjectItem(root, "i2s_ws_gpio")) && cJSON_IsNumber(item)) cfg.i2s_ws_gpio = (int8_t)item->valueint;
+    if ((item = cJSON_GetObjectItem(root, "oled_scl_gpio")) && cJSON_IsNumber(item)) cfg.oled_scl_gpio = (int8_t)item->valueint;
+    if ((item = cJSON_GetObjectItem(root, "oled_sda_gpio")) && cJSON_IsNumber(item)) cfg.oled_sda_gpio = (int8_t)item->valueint;
     if ((item = cJSON_GetObjectItem(root, "neopixel_gpio")) && cJSON_IsNumber(item)) cfg.neopixel_gpio = (int8_t)item->valueint;
     if ((item = cJSON_GetObjectItem(root, "boot_button_gpio")) && cJSON_IsNumber(item)) cfg.boot_button_gpio = (int8_t)item->valueint;
     if ((item = cJSON_GetObjectItem(root, "wifi_ssid")) && cJSON_IsString(item)) strncpy(cfg.wifi_ssid, item->valuestring, sizeof(cfg.wifi_ssid) - 1);

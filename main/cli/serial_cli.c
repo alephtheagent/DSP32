@@ -49,7 +49,7 @@ static void print_help(void)
     cdc_printf("  buffer <16|32|64|128|256>    - Set DMA buffer latency in samples\r\n");
     cdc_printf("  vol <dB>                     - Set master volume (-60.0 to 0.0 dB)\r\n");
     cdc_printf("  eq <band 0-9> <gain_db>      - Set EQ band gain\r\n");
-    cdc_printf("  fx <name> <on|off>           - Toggle FX (comp, lim, tube, cross, wide, bass, deess, pitch, loud, fx)\r\n");
+    cdc_printf("  fx <name> <on|off>           - Toggle FX (tape, comp, lim, cross, wide, bass, deess, pitch, loud, eq)\r\n");
     cdc_printf("  preset <list|load <n>|reset> - Manage presets\r\n");
     cdc_printf("  storage <info|ls|cat|format> - LittleFS flash storage manager\r\n");
     cdc_printf("  pins [set <bck> <din> <ws>|reset] - Manage hardware pinout\r\n");
@@ -119,6 +119,29 @@ static void handle_command(char *line)
                 dsp_eq_set_band(&engine->eq, b, g, 0.0f, 0.0f, false);
                 cdc_printf("EQ Band %d gain set to %.1f dB\r\n", b, g);
             }
+        }
+    } else if (strcmp(cmd, "fx") == 0) {
+        char *fx_name = strtok(NULL, " \t\r\n");
+        char *val = strtok(NULL, " \t\r\n");
+        if (fx_name && val) {
+            bool on = (strcmp(val, "on") == 0 || strcmp(val, "1") == 0);
+            dsp_config_t cfg;
+            dsp_engine_get_config(engine, &cfg);
+            if (strcmp(fx_name, "tape") == 0) cfg.tape.enabled = on;
+            else if (strcmp(fx_name, "comp") == 0) cfg.comp.enabled = on;
+            else if (strcmp(fx_name, "lim") == 0) cfg.limiter.enabled = on;
+            else if (strcmp(fx_name, "cross") == 0) cfg.crossfeed.enabled = on;
+            else if (strcmp(fx_name, "wide") == 0) cfg.widener.enabled = on;
+            else if (strcmp(fx_name, "bass") == 0) cfg.bass.enabled = on;
+            else if (strcmp(fx_name, "deess") == 0) cfg.deesser.enabled = on;
+            else if (strcmp(fx_name, "pitch") == 0) cfg.pitch.enabled = on;
+            else if (strcmp(fx_name, "loud") == 0) cfg.loudness.enabled = on;
+            else if (strcmp(fx_name, "crush") == 0) cfg.bitcrusher.enabled = on;
+            else if (strcmp(fx_name, "eq") == 0) cfg.eq.enabled = on;
+            dsp_engine_set_config(engine, &cfg);
+            cdc_printf("FX '%s' set to %s\r\n", fx_name, on ? "ON" : "OFF");
+        } else {
+            cdc_printf("Usage: fx <tape|crush|comp|lim|cross|wide|bass|deess|pitch|loud|eq> <on|off>\r\n");
         }
     } else if (strcmp(cmd, "wifi") == 0) {
         char *arg = strtok(NULL, " \t\r\n");
@@ -236,6 +259,8 @@ static void handle_command(char *line)
             cdc_printf("  I2S BCK : GPIO %d\r\n", cfg->i2s_bck_gpio);
             cdc_printf("  I2S DIN : GPIO %d\r\n", cfg->i2s_din_gpio);
             cdc_printf("  I2S WS  : GPIO %d\r\n", cfg->i2s_ws_gpio);
+            cdc_printf("  OLED SCL: GPIO %d\r\n", cfg->oled_scl_gpio);
+            cdc_printf("  OLED SDA: GPIO %d\r\n", cfg->oled_sda_gpio);
             cdc_printf("  NeoPixel: GPIO %d\r\n", cfg->neopixel_gpio);
             cdc_printf("  BOOT Btn: GPIO %d\r\n", cfg->boot_button_gpio);
             cdc_printf("  Wi-Fi   : SSID '%s' (Ch %d)\r\n", cfg->wifi_ssid, cfg->wifi_channel);

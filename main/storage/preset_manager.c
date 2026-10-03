@@ -25,17 +25,17 @@ static void init_factory_presets(void)
     s_presets[0].config.limiter.release_ms = 50.0f;
     s_presets[0].is_factory = true;
 
-    // Preset 1: Warm Tube
-    snprintf(s_presets[1].name, PRESET_NAME_MAX_LEN, "Warm Tube");
+    // Preset 1: Vintage Cassette
+    snprintf(s_presets[1].name, PRESET_NAME_MAX_LEN, "Vintage Cassette");
     memset(&s_presets[1].config, 0, sizeof(dsp_config_t));
-    s_presets[1].config.tube.enabled = true;
-    s_presets[1].config.tube.drive = 0.4f;
-    s_presets[1].config.tube.warmth = 0.65f;
-    s_presets[1].config.eq.enabled = true;
-    s_presets[1].config.eq.bands[0].enabled = true;
-    s_presets[1].config.eq.bands[0].gain_db = 2.0f; // low shelf +2dB
-    s_presets[1].config.eq.bands[9].enabled = true;
-    s_presets[1].config.eq.bands[9].gain_db = -1.2f; // smooth high roll
+    s_presets[1].config.tape.enabled = true;
+    s_presets[1].config.tape.drive = 0.20f;
+    s_presets[1].config.tape.hf_cut_hz = 15000.0f;
+    s_presets[1].config.tape.head_bump = 0.25f;
+    s_presets[1].config.tape.hiss_level = 0.01f;
+    s_presets[1].config.tape.click_rate = 0.05f;
+    s_presets[1].config.tape.click_level = 0.03f;
+    s_presets[1].config.tape.wow_flutter = 0.10f;
     s_presets[1].config.limiter.enabled = true;
     s_presets[1].config.limiter.ceiling_db = -0.2f;
     s_presets[1].is_factory = true;
@@ -99,12 +99,21 @@ static void init_factory_presets(void)
     s_presets[5].config.limiter.ceiling_db = -1.0f;
     s_presets[5].is_factory = true;
 
-    // Preset 6 & 7: User Presets
-    snprintf(s_presets[6].name, PRESET_NAME_MAX_LEN, "User Preset 1");
+    // Preset 6: 8-Bit Arcade (Chiptune Bitcrusher)
+    snprintf(s_presets[6].name, PRESET_NAME_MAX_LEN, "8-Bit Arcade");
     memset(&s_presets[6].config, 0, sizeof(dsp_config_t));
+    s_presets[6].config.bitcrusher.enabled = true;
+    s_presets[6].config.bitcrusher.enable_downsample = true;
+    s_presets[6].config.bitcrusher.enable_quantize = true;
+    s_presets[6].config.bitcrusher.enable_overflow = false;
+    s_presets[6].config.bitcrusher.dither = false;
+    s_presets[6].config.bitcrusher.bit_depth = 8;
+    s_presets[6].config.bitcrusher.downsample_rate = 8000.0f;
+    s_presets[6].config.bitcrusher.overflow_intensity = 0.0f;
+    s_presets[6].config.bitcrusher.mix = 0.90f;
     s_presets[6].config.limiter.enabled = true;
-    s_presets[6].config.limiter.ceiling_db = -0.1f;
-    s_presets[6].is_factory = false;
+    s_presets[6].config.limiter.ceiling_db = -0.2f;
+    s_presets[6].is_factory = true;
 
     snprintf(s_presets[7].name, PRESET_NAME_MAX_LEN, "User Preset 2");
     memset(&s_presets[7].config, 0, sizeof(dsp_config_t));
@@ -148,12 +157,30 @@ const preset_entry_t *preset_manager_get_preset(size_t index)
     return &s_presets[index];
 }
 
+static char s_current_preset_name[PRESET_NAME_MAX_LEN] = "Reference Flat";
+
 esp_err_t preset_manager_load(size_t index, dsp_config_t *out_config)
 {
     if (index >= MAX_PRESETS || !out_config) return ESP_ERR_INVALID_ARG;
     *out_config = s_presets[index].config;
+    strncpy(s_current_preset_name, s_presets[index].name, sizeof(s_current_preset_name) - 1);
+    s_current_preset_name[sizeof(s_current_preset_name) - 1] = '\0';
     ESP_LOGI(TAG, "Loaded preset [%d]: %s", (int)index, s_presets[index].name);
     return ESP_OK;
+}
+
+void preset_manager_get_current_name(char *out_name, size_t max_len)
+{
+    if (!out_name || max_len == 0) return;
+    strncpy(out_name, s_current_preset_name, max_len - 1);
+    out_name[max_len - 1] = '\0';
+}
+
+void preset_manager_set_current_name(const char *name)
+{
+    if (!name) return;
+    strncpy(s_current_preset_name, name, sizeof(s_current_preset_name) - 1);
+    s_current_preset_name[sizeof(s_current_preset_name) - 1] = '\0';
 }
 
 esp_err_t preset_manager_save(size_t index, const char *name, const dsp_config_t *config)

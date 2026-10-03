@@ -23,6 +23,8 @@ static void set_defaults(void)
     s_config.i2s_ws_gpio = HW_DEFAULT_I2S_WS_PIN;
     s_config.neopixel_gpio = HW_DEFAULT_NEOPIXEL_PIN;
     s_config.boot_button_gpio = HW_DEFAULT_BOOT_BUTTON_PIN;
+    s_config.oled_scl_gpio = HW_DEFAULT_OLED_SCL_PIN;
+    s_config.oled_sda_gpio = HW_DEFAULT_OLED_SDA_PIN;
     strncpy(s_config.wifi_ssid, HW_DEFAULT_WIFI_SSID, sizeof(s_config.wifi_ssid) - 1);
     s_config.wifi_ssid[sizeof(s_config.wifi_ssid) - 1] = '\0';
     strncpy(s_config.wifi_pass, HW_DEFAULT_WIFI_PASS, sizeof(s_config.wifi_pass) - 1);
@@ -42,16 +44,18 @@ esp_err_t hw_config_init(void)
         err = nvs_get_blob(handle, NVS_BLOB_KEY, &loaded, &sz);
         if (err == ESP_OK && sz == sizeof(hw_config_t)) {
             s_config = loaded;
-            ESP_LOGI(TAG, "Hardware config loaded from NVS: I2S (BCK=%d, DIN=%d, WS=%d), LED=%d, BTN=%d",
+            ESP_LOGI(TAG, "Hardware config loaded from NVS: I2S (BCK=%d, DIN=%d, WS=%d), OLED (SCL=%d, SDA=%d), LED=%d, BTN=%d",
                      s_config.i2s_bck_gpio, s_config.i2s_din_gpio, s_config.i2s_ws_gpio,
+                     s_config.oled_scl_gpio, s_config.oled_sda_gpio,
                      s_config.neopixel_gpio, s_config.boot_button_gpio);
         } else {
             ESP_LOGW(TAG, "Hardware config in NVS invalid or size mismatch, using factory defaults");
         }
         nvs_close(handle);
     } else {
-        ESP_LOGI(TAG, "No custom hardware config in NVS, using factory defaults: I2S (BCK=%d, DIN=%d, WS=%d)",
-                 s_config.i2s_bck_gpio, s_config.i2s_din_gpio, s_config.i2s_ws_gpio);
+        ESP_LOGI(TAG, "No custom hardware config in NVS, using factory defaults: I2S (BCK=%d, DIN=%d, WS=%d), OLED (SCL=%d, SDA=%d)",
+                 s_config.i2s_bck_gpio, s_config.i2s_din_gpio, s_config.i2s_ws_gpio,
+                 s_config.oled_scl_gpio, s_config.oled_sda_gpio);
     }
 
     return ESP_OK;
@@ -71,7 +75,9 @@ esp_err_t hw_config_set(const hw_config_t *cfg)
         cfg->i2s_din_gpio < -1 || cfg->i2s_din_gpio > 48 ||
         cfg->i2s_ws_gpio < -1 || cfg->i2s_ws_gpio > 48 ||
         cfg->neopixel_gpio < -1 || cfg->neopixel_gpio > 48 ||
-        cfg->boot_button_gpio < -1 || cfg->boot_button_gpio > 48) {
+        cfg->boot_button_gpio < -1 || cfg->boot_button_gpio > 48 ||
+        cfg->oled_scl_gpio < -1 || cfg->oled_scl_gpio > 48 ||
+        cfg->oled_sda_gpio < -1 || cfg->oled_sda_gpio > 48) {
         ESP_LOGE(TAG, "GPIO out of valid range (-1..48)");
         return ESP_ERR_INVALID_ARG;
     }

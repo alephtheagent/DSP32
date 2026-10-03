@@ -30,6 +30,7 @@
 #include "cli/serial_cli.h"
 #include "button/boot_button.h"
 #include "neopixel.h"
+#include "display/oled_display.h"
 
 static const char *TAG = "MAIN";
 
@@ -163,6 +164,9 @@ void app_main(void)
 
     // 10. Built-in NeoPixel RGB Audio Visualizer (GPIO 48)
     neopixel_init();
+
+    // 11. SSD1306 128x64 OLED Display (SCL=8, SDA=9 via u8g2 on Core 0)
+    oled_display_init();
 
     ESP_LOGI(TAG, "System ready. Connect USB to PC/Mac/Phone for bit-perfect audio streaming.");
     ESP_LOGI(TAG, "Press BOOT button (GPIO 0) at any time to open Wi-Fi Web UI (192.168.4.1).");

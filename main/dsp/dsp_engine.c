@@ -44,8 +44,11 @@ void dsp_engine_init(dsp_engine_t *engine, float sample_rate)
     dsp_stereo_widener_init(&engine->widener);
     engine->config.widener = engine->widener.config;
 
-    dsp_tube_warmth_init(&engine->tube);
-    engine->config.tube = engine->tube.config;
+    dsp_tape_init(&engine->tape, (uint32_t)engine->sample_rate);
+    engine->config.tape = engine->tape.config;
+
+    dsp_bitcrusher_init(&engine->bitcrusher, engine->sample_rate);
+    engine->config.bitcrusher = engine->bitcrusher.config;
 
     dsp_bass_enhancer_init(&engine->bass, engine->sample_rate);
     engine->config.bass = engine->bass.config;
@@ -69,6 +72,8 @@ void dsp_engine_set_sample_rate(dsp_engine_t *engine, float sample_rate)
         dsp_pitch_set_sample_rate(&engine->pitch, sample_rate);
         dsp_deesser_set_sample_rate(&engine->deesser, sample_rate);
         dsp_crossfeed_set_sample_rate(&engine->crossfeed, sample_rate);
+        dsp_tape_update_config(&engine->tape, &engine->config.tape, (uint32_t)sample_rate);
+        dsp_bitcrusher_set_sample_rate(&engine->bitcrusher, sample_rate);
         dsp_bass_enhancer_set_sample_rate(&engine->bass, sample_rate);
         dsp_reverb_delay_set_sample_rate(&engine->fx, sample_rate);
         dsp_meter_set_sample_rate(&engine->meter, sample_rate);
@@ -91,7 +96,8 @@ void dsp_engine_set_config(dsp_engine_t *engine, const dsp_config_t *config)
         dsp_deesser_update_config(&engine->deesser, &config->deesser);
         dsp_crossfeed_update_config(&engine->crossfeed, &config->crossfeed);
         dsp_stereo_widener_update_config(&engine->widener, &config->widener);
-        dsp_tube_warmth_update_config(&engine->tube, &config->tube);
+        dsp_tape_update_config(&engine->tape, &config->tape, (uint32_t)engine->sample_rate);
+        dsp_bitcrusher_update_config(&engine->bitcrusher, &config->bitcrusher);
         dsp_bass_enhancer_update_config(&engine->bass, &config->bass);
         dsp_reverb_delay_update_config(&engine->fx, &config->fx);
 
@@ -144,6 +150,11 @@ void dsp_engine_meter_update_pcm(dsp_engine_t *engine, const uint8_t *pcm, size_
     dsp_meter_update_pcm(&engine->meter, pcm, bytes, bit_depth);
 }
 
+void dsp_engine_get_waveform(dsp_engine_t *engine, float *out_samples, size_t count)
+{
+    dsp_meter_get_waveform(&engine->meter, out_samples, count);
+}
+
 void dsp_engine_process(dsp_engine_t *engine, float *buf_l, float *buf_r, size_t num_samples)
 {
     if (num_samples == 0) return;
@@ -172,10 +183,13 @@ void dsp_engine_process(dsp_engine_t *engine, float *buf_l, float *buf_r, size_t
     // 6. Psychoacoustic Bass Enhancer
     dsp_bass_enhancer_process(&engine->bass, buf_l, buf_r, num_samples);
 
-    // 7. Tube Warmth / Tape Saturation
-    dsp_tube_warmth_process(&engine->tube, buf_l, buf_r, num_samples);
+    // 7. Cassette Tape Emulator (Saturation, Lo-Fi degradation, Hiss, Clicks, Wow/Flutter)
+    dsp_tape_process(&engine->tape, buf_l, buf_r, num_samples);
 
-    // 8. Mid-Side Stereo Widener
+    // 8. Bitcrusher / Downsampler (Sample-and-hold, Bit Reduction, Overflow Wrap)
+    dsp_bitcrusher_process(&engine->bitcrusher, buf_l, buf_r, num_samples);
+
+    // 9. Mid-Side Stereo Widener
     dsp_stereo_widener_process(&engine->widener, buf_l, buf_r, num_samples);
 
     // 9. Headphone Crossfeed
