@@ -85,6 +85,25 @@ static esp_err_t api_vu_handler(httpd_req_t *req)
     return httpd_resp_send(req, buf, HTTPD_RESP_USE_STRLEN);
 }
 
+// GET /api/wave
+static esp_err_t api_wave_handler(httpd_req_t *req)
+{
+    dsp_engine_t *engine = audio_pipeline_get_dsp_engine();
+    float wave[64];
+    dsp_engine_get_waveform(engine, wave, 64);
+
+    char buf[512];
+    int pos = snprintf(buf, sizeof(buf), "{\"samples\":[");
+    for (int i = 0; i < 64 && pos < (int)sizeof(buf) - 8; i++) {
+        pos += snprintf(buf + pos, sizeof(buf) - pos, "%.2f%s", wave[i], (i == 63) ? "" : ",");
+    }
+    snprintf(buf + pos, sizeof(buf) - pos, "]}");
+
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+    return httpd_resp_send(req, buf, HTTPD_RESP_USE_STRLEN);
+}
+
 // GET /api/config
 static esp_err_t api_config_get_handler(httpd_req_t *req)
 {
@@ -850,6 +869,9 @@ esp_err_t web_server_start(void)
 
     httpd_uri_t uri_vu = { .uri = "/api/vu", .method = HTTP_GET, .handler = api_vu_handler };
     httpd_register_uri_handler(s_server, &uri_vu);
+
+    httpd_uri_t uri_wave = { .uri = "/api/wave", .method = HTTP_GET, .handler = api_wave_handler };
+    httpd_register_uri_handler(s_server, &uri_wave);
 
     httpd_uri_t uri_config_get = { .uri = "/api/config", .method = HTTP_GET, .handler = api_config_get_handler };
     httpd_register_uri_handler(s_server, &uri_config_get);

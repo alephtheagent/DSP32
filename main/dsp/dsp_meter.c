@@ -88,8 +88,7 @@ void dsp_meter_update_output(dsp_meter_t *meter, const float *buf_l, const float
     meter->out_rms_r = (rms_r > meter->out_rms_r) ? rms_r : (meter->out_rms_r * decay);
 
     // Capture mono waveform samples into rolling visualizer buffer
-    size_t step = (num_samples > DSP_METER_WAVE_LEN) ? (num_samples / DSP_METER_WAVE_LEN) : 1;
-    for (size_t i = 0; i < num_samples; i += step) {
+    for (size_t i = 0; i < num_samples; i++) {
         meter->wave_buf[meter->wave_idx++] = (buf_l[i] + buf_r[i]) * 0.5f;
         if (meter->wave_idx >= DSP_METER_WAVE_LEN) {
             meter->wave_idx = 0;
@@ -110,8 +109,7 @@ void dsp_meter_update_pcm(dsp_meter_t *meter, const uint8_t *pcm, size_t bytes, 
     if (bit_depth == 16) {
         const int16_t *src = (const int16_t *)pcm;
         const float norm16 = 1.0f / 32768.0f;
-        size_t step = (num_samples > DSP_METER_WAVE_LEN) ? (num_samples / DSP_METER_WAVE_LEN) : 1;
-        for (size_t i = 0; i < num_samples; i += step) {
+        for (size_t i = 0; i < num_samples; i++) {
             float l = (float)src[2 * i] * norm16;
             float r = (float)src[2 * i + 1] * norm16;
             meter->wave_buf[meter->wave_idx++] = (l + r) * 0.5f;
@@ -130,8 +128,7 @@ void dsp_meter_update_pcm(dsp_meter_t *meter, const uint8_t *pcm, size_t bytes, 
     } else {
         const int32_t *src = (const int32_t *)pcm;
         const float norm24 = 1.0f / 8388608.0f;
-        size_t step = (num_samples > DSP_METER_WAVE_LEN) ? (num_samples / DSP_METER_WAVE_LEN) : 1;
-        for (size_t i = 0; i < num_samples; i += step) {
+        for (size_t i = 0; i < num_samples; i++) {
             float l = (float)(src[2 * i] >> 8) * norm24;
             float r = (float)(src[2 * i + 1] >> 8) * norm24;
             meter->wave_buf[meter->wave_idx++] = (l + r) * 0.5f;
@@ -188,11 +185,34 @@ void dsp_meter_get_waveform(dsp_meter_t *meter, float *out_samples, size_t count
         for (size_t i = 0; i < DSP_METER_WAVE_LEN; i++) {
             meter->wave_buf[i] *= 0.85f;
         }
+        for (size_t i = 0; i < count; i++) {
+            out_samples[i] = 0.0f;
+        }
+        return;
     }
 
-    uint16_t start = meter->wave_idx;
+    // Trigger Search: look for rising zero-crossing in oldest portion
+    uint16_t start = meter->wave_idx; // Oldest sample in circular buffer
+    uint16_t trigger = start;
+    bool found_trigger = false;
+
+    size_t search_limit = (DSP_METER_WAVE_LEN > count) ? (DSP_METER_WAVE_LEN - count) : 0;
+    for (size_t i = 0; i < search_limit; i++) {
+        uint16_t idx1 = (start + i) % DSP_METER_WAVE_LEN;
+        uint16_t idx2 = (start + i + 1) % DSP_METER_WAVE_LEN;
+        if (meter->wave_buf[idx1] <= 0.0f && meter->wave_buf[idx2] > 0.0f) {
+            trigger = idx2;
+            found_trigger = true;
+            break;
+        }
+    }
+
+    if (!found_trigger) {
+        trigger = start;
+    }
+
     for (size_t i = 0; i < count; i++) {
-        uint16_t idx = (start + i) % DSP_METER_WAVE_LEN;
+        uint16_t idx = (trigger + i) % DSP_METER_WAVE_LEN;
         out_samples[i] = meter->wave_buf[idx];
     }
 }

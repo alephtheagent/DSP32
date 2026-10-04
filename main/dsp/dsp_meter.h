@@ -13,7 +13,7 @@
 extern "C" {
 #endif
 
-#define DSP_METER_WAVE_LEN 128
+#define DSP_METER_WAVE_LEN 256
 
 typedef struct {
     float in_peak_l, in_peak_r;

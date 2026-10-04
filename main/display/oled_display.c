@@ -98,26 +98,61 @@ static void draw_oscilloscope(u8g2_t *u8g2, const float *waveform, size_t count)
     const int mid_y = 25;
     const int max_dev = 12;
 
+    // Measure peak amplitude in current frame
+    float peak = 0.0f;
+    if (waveform && count > 0) {
+        for (size_t i = 0; i < count; i++) {
+            float a = fabsf(waveform[i]);
+            if (a > peak) peak = a;
+        }
+    }
+
     // Dotted center zero-axis for vector oscilloscope look
     for (int x = 0; x < 128; x += 4) {
         u8g2_DrawPixel(u8g2, x, mid_y);
     }
 
-    // Connected line visualizer
-    if (waveform && count > 1) {
+    static float s_smooth_gain = 12.0f;
+    static float s_idle_phase = 0.0f;
+
+    if (peak < 0.005f) {
+        // Standby / Silence: gentle subtle idle vector ripple (Vib-Ribbon aesthetic)
+        s_idle_phase += 0.08f;
+        if (s_idle_phase > 6.28318f) s_idle_phase -= 6.28318f;
+
         for (int x = 0; x < 127; x++) {
-            float s1 = waveform[x];
-            float s2 = waveform[x + 1];
-
-            int y1 = mid_y - (int)(s1 * (float)max_dev);
-            int y2 = mid_y - (int)(s2 * (float)max_dev);
-
-            if (y1 < 12) y1 = 12;
-            if (y1 > 38) y1 = 38;
-            if (y2 < 12) y2 = 12;
-            if (y2 > 38) y2 = 38;
-
+            float angle1 = s_idle_phase + (float)x * 0.08f;
+            float angle2 = s_idle_phase + (float)(x + 1) * 0.08f;
+            int y1 = mid_y - (int)roundf(sinf(angle1) * 1.5f);
+            int y2 = mid_y - (int)roundf(sinf(angle2) * 1.5f);
             u8g2_DrawLine(u8g2, x, y1, x + 1, y2);
+        }
+        s_smooth_gain = 12.0f;
+    } else {
+        // Dynamic Auto-Gain (AGC): scale quiet audio so waveform clearly fills screen
+        // Target peak amplitude = 10 pixels (leaving 2px headroom below max_dev = 12)
+        float target_gain = (float)(max_dev - 2) / (peak + 0.001f);
+        if (target_gain > 55.0f) target_gain = 55.0f; // Max boost for quiet tracks
+        if (target_gain < 10.0f) target_gain = 10.0f; // Baseline for 0 dBFS tracks
+
+        // Smooth gain transitions without stepping
+        s_smooth_gain += 0.25f * (target_gain - s_smooth_gain);
+
+        if (waveform && count > 1) {
+            for (int x = 0; x < 127; x++) {
+                float s1 = waveform[x];
+                float s2 = waveform[x + 1];
+
+                int y1 = mid_y - (int)roundf(s1 * s_smooth_gain);
+                int y2 = mid_y - (int)roundf(s2 * s_smooth_gain);
+
+                if (y1 < 12) y1 = 12;
+                if (y1 > 38) y1 = 38;
+                if (y2 < 12) y2 = 12;
+                if (y2 > 38) y2 = 38;
+
+                u8g2_DrawLine(u8g2, x, y1, x + 1, y2);
+            }
         }
     }
 
