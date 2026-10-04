@@ -56,11 +56,35 @@ jobs:
           cp build/partition_table/partition-table.bin dist/partition-table.bin
           cp build/ota_data_initial.bin dist/ota_data_initial.bin
 
-      - name: Upload firmware artifacts
+      - name: Upload merged firmware (1-click flash)
         uses: actions/upload-artifact@v4
         with:
-          name: esp32s3-firmware
-          path: dist/
+          name: merged_firmware
+          path: dist/merged_firmware.bin
+
+      - name: Upload OTA firmware (Web UI update)
+        uses: actions/upload-artifact@v4
+        with:
+          name: firmware_ota
+          path: dist/firmware_ota.bin
+
+      - name: Upload bootloader binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: bootloader
+          path: dist/bootloader.bin
+
+      - name: Upload partition table binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: partition-table
+          path: dist/partition-table.bin
+
+      - name: Upload OTA data binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: ota_data_initial
+          path: dist/ota_data_initial.bin
 
   release:
     name: Publish GitHub Release
@@ -68,11 +92,11 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release'
     runs-on: ubuntu-latest
     steps:
-      - name: Download firmware binaries
+      - name: Download all firmware binaries
         uses: actions/download-artifact@v4
         with:
-          name: esp32s3-firmware
           path: dist
+          merge-multiple: true
 
       - name: Attach binaries to Release
         uses: softprops/action-gh-release@v2
