@@ -742,6 +742,10 @@ static esp_err_t api_preferences_get_handler(httpd_req_t *req)
     cJSON_AddStringToObject(root, "wifi_ssid", cfg->wifi_ssid);
     cJSON_AddStringToObject(root, "wifi_pass", cfg->wifi_pass);
     cJSON_AddNumberToObject(root, "wifi_channel", cfg->wifi_channel);
+    cJSON_AddNumberToObject(root, "oled_fps", cfg->oled_fps);
+    cJSON_AddNumberToObject(root, "web_scope_fps", cfg->web_scope_fps);
+    cJSON_AddNumberToObject(root, "scope_gain", (double)cfg->scope_gain);
+    cJSON_AddBoolToObject(root, "scope_pre_vol", cfg->scope_pre_vol);
 
     char *json_str = cJSON_PrintUnformatted(root);
     httpd_resp_set_type(req, "application/json");
@@ -783,19 +787,47 @@ static esp_err_t api_preferences_post_handler(httpd_req_t *req)
         return ESP_FAIL;
     }
 
-    hw_config_t cfg = *hw_config_get();
+    hw_config_t prev = *hw_config_get();
+    hw_config_t cfg = prev;
+    bool need_reboot = false;
 
     cJSON *item;
-    if ((item = cJSON_GetObjectItem(root, "i2s_bck_gpio")) && cJSON_IsNumber(item)) cfg.i2s_bck_gpio = (int8_t)item->valueint;
-    if ((item = cJSON_GetObjectItem(root, "i2s_din_gpio")) && cJSON_IsNumber(item)) cfg.i2s_din_gpio = (int8_t)item->valueint;
-    if ((item = cJSON_GetObjectItem(root, "i2s_ws_gpio")) && cJSON_IsNumber(item)) cfg.i2s_ws_gpio = (int8_t)item->valueint;
-    if ((item = cJSON_GetObjectItem(root, "oled_scl_gpio")) && cJSON_IsNumber(item)) cfg.oled_scl_gpio = (int8_t)item->valueint;
-    if ((item = cJSON_GetObjectItem(root, "oled_sda_gpio")) && cJSON_IsNumber(item)) cfg.oled_sda_gpio = (int8_t)item->valueint;
-    if ((item = cJSON_GetObjectItem(root, "neopixel_gpio")) && cJSON_IsNumber(item)) cfg.neopixel_gpio = (int8_t)item->valueint;
-    if ((item = cJSON_GetObjectItem(root, "boot_button_gpio")) && cJSON_IsNumber(item)) cfg.boot_button_gpio = (int8_t)item->valueint;
-    if ((item = cJSON_GetObjectItem(root, "wifi_ssid")) && cJSON_IsString(item)) strncpy(cfg.wifi_ssid, item->valuestring, sizeof(cfg.wifi_ssid) - 1);
-    if ((item = cJSON_GetObjectItem(root, "wifi_pass")) && cJSON_IsString(item)) strncpy(cfg.wifi_pass, item->valuestring, sizeof(cfg.wifi_pass) - 1);
-    if ((item = cJSON_GetObjectItem(root, "wifi_channel")) && cJSON_IsNumber(item)) cfg.wifi_channel = (uint8_t)item->valueint;
+    if ((item = cJSON_GetObjectItem(root, "i2s_bck_gpio")) && cJSON_IsNumber(item)) {
+        if (cfg.i2s_bck_gpio != (int8_t)item->valueint) { cfg.i2s_bck_gpio = (int8_t)item->valueint; need_reboot = true; }
+    }
+    if ((item = cJSON_GetObjectItem(root, "i2s_din_gpio")) && cJSON_IsNumber(item)) {
+        if (cfg.i2s_din_gpio != (int8_t)item->valueint) { cfg.i2s_din_gpio = (int8_t)item->valueint; need_reboot = true; }
+    }
+    if ((item = cJSON_GetObjectItem(root, "i2s_ws_gpio")) && cJSON_IsNumber(item)) {
+        if (cfg.i2s_ws_gpio != (int8_t)item->valueint) { cfg.i2s_ws_gpio = (int8_t)item->valueint; need_reboot = true; }
+    }
+    if ((item = cJSON_GetObjectItem(root, "oled_scl_gpio")) && cJSON_IsNumber(item)) {
+        if (cfg.oled_scl_gpio != (int8_t)item->valueint) { cfg.oled_scl_gpio = (int8_t)item->valueint; need_reboot = true; }
+    }
+    if ((item = cJSON_GetObjectItem(root, "oled_sda_gpio")) && cJSON_IsNumber(item)) {
+        if (cfg.oled_sda_gpio != (int8_t)item->valueint) { cfg.oled_sda_gpio = (int8_t)item->valueint; need_reboot = true; }
+    }
+    if ((item = cJSON_GetObjectItem(root, "neopixel_gpio")) && cJSON_IsNumber(item)) {
+        if (cfg.neopixel_gpio != (int8_t)item->valueint) { cfg.neopixel_gpio = (int8_t)item->valueint; need_reboot = true; }
+    }
+    if ((item = cJSON_GetObjectItem(root, "boot_button_gpio")) && cJSON_IsNumber(item)) {
+        if (cfg.boot_button_gpio != (int8_t)item->valueint) { cfg.boot_button_gpio = (int8_t)item->valueint; need_reboot = true; }
+    }
+    if ((item = cJSON_GetObjectItem(root, "wifi_ssid")) && cJSON_IsString(item)) {
+        if (strcmp(cfg.wifi_ssid, item->valuestring) != 0) { strncpy(cfg.wifi_ssid, item->valuestring, sizeof(cfg.wifi_ssid) - 1); need_reboot = true; }
+    }
+    if ((item = cJSON_GetObjectItem(root, "wifi_pass")) && cJSON_IsString(item)) {
+        if (strcmp(cfg.wifi_pass, item->valuestring) != 0) { strncpy(cfg.wifi_pass, item->valuestring, sizeof(cfg.wifi_pass) - 1); need_reboot = true; }
+    }
+    if ((item = cJSON_GetObjectItem(root, "wifi_channel")) && cJSON_IsNumber(item)) {
+        if (cfg.wifi_channel != (uint8_t)item->valueint) { cfg.wifi_channel = (uint8_t)item->valueint; need_reboot = true; }
+    }
+
+    // Dynamic display & visualizer calibration parameters
+    if ((item = cJSON_GetObjectItem(root, "oled_fps")) && cJSON_IsNumber(item)) cfg.oled_fps = (uint8_t)item->valueint;
+    if ((item = cJSON_GetObjectItem(root, "web_scope_fps")) && cJSON_IsNumber(item)) cfg.web_scope_fps = (uint8_t)item->valueint;
+    if ((item = cJSON_GetObjectItem(root, "scope_gain")) && cJSON_IsNumber(item)) cfg.scope_gain = (float)item->valuedouble;
+    if ((item = cJSON_GetObjectItem(root, "scope_pre_vol"))) cfg.scope_pre_vol = cJSON_IsTrue(item);
 
     esp_err_t err = hw_config_set(&cfg);
     cJSON_Delete(root);
@@ -804,8 +836,12 @@ static esp_err_t api_preferences_post_handler(httpd_req_t *req)
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
 
     if (err == ESP_OK) {
-        httpd_resp_sendstr(req, "{\"status\":\"ok\",\"message\":\"Saved. Rebooting...\"}");
-        xTaskCreate(pref_reboot_task, "pref_reboot", 2048, NULL, 5, NULL);
+        if (need_reboot) {
+            httpd_resp_sendstr(req, "{\"status\":\"ok\",\"reboot\":true,\"message\":\"Hardware pins changed. Rebooting...\"}");
+            xTaskCreate(pref_reboot_task, "pref_reboot", 2048, NULL, 5, NULL);
+        } else {
+            httpd_resp_sendstr(req, "{\"status\":\"ok\",\"reboot\":false,\"message\":\"Display and visualizer calibration applied live!\"}");
+        }
     } else {
         httpd_resp_sendstr(req, "{\"status\":\"error\",\"message\":\"Failed to save to NVS\"}");
     }

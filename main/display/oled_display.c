@@ -115,7 +115,10 @@ static void draw_oscilloscope(u8g2_t *u8g2, const float *waveform, size_t count)
     static float s_smooth_gain = 12.0f;
     static float s_idle_phase = 0.0f;
 
-    if (peak < 0.005f) {
+    const hw_config_t *hw = hw_config_get();
+    float calib = (hw && hw->scope_gain > 0.0f) ? hw->scope_gain : 1.0f;
+
+    if (peak < 0.0003f) {
         // Standby / Silence: gentle subtle idle vector ripple (Vib-Ribbon aesthetic)
         s_idle_phase += 0.08f;
         if (s_idle_phase > 6.28318f) s_idle_phase -= 6.28318f;
@@ -131,9 +134,9 @@ static void draw_oscilloscope(u8g2_t *u8g2, const float *waveform, size_t count)
     } else {
         // Dynamic Auto-Gain (AGC): scale quiet audio so waveform clearly fills screen
         // Target peak amplitude = 10 pixels (leaving 2px headroom below max_dev = 12)
-        float target_gain = (float)(max_dev - 2) / (peak + 0.001f);
-        if (target_gain > 55.0f) target_gain = 55.0f; // Max boost for quiet tracks
-        if (target_gain < 10.0f) target_gain = 10.0f; // Baseline for 0 dBFS tracks
+        float target_gain = ((float)(max_dev - 2) / (peak + 0.0001f)) * calib;
+        if (target_gain > 120.0f) target_gain = 120.0f; // High boost for whisper/low listening volume
+        if (target_gain < 8.0f) target_gain = 8.0f;     // Baseline for full scale tracks
 
         // Smooth gain transitions without stepping
         s_smooth_gain += 0.25f * (target_gain - s_smooth_gain);
@@ -301,8 +304,12 @@ static void oled_task(void *pvParameters)
         // Push frame to SSD1306 via I2C
         u8g2_SendBuffer(&s_u8g2);
 
-        // Yield CPU for 40ms (~25 FPS)
-        vTaskDelay(pdMS_TO_TICKS(40));
+        // Dynamic refresh delay based on configured FPS (15..60)
+        const hw_config_t *hw_run = hw_config_get();
+        int target_fps = (hw_run && hw_run->oled_fps >= 15 && hw_run->oled_fps <= 60) ? hw_run->oled_fps : 30;
+        int delay_ms = 1000 / target_fps;
+        if (delay_ms < 10) delay_ms = 10;
+        vTaskDelay(pdMS_TO_TICKS(delay_ms));
     }
 }
 
@@ -321,14 +328,14 @@ esp_err_t oled_display_init(void)
         return ESP_OK;
     }
 
-    ESP_LOGI(TAG, "Configuring SSD1306 OLED on I2C (SCL=GPIO %d, SDA=GPIO %d)", scl_pin, sda_pin);
+    ESP_LOGI(TAG, "Configuring SSD1306 OLED on I2C (SCL=GPIO %d, SDA=GPIO %d, %d FPS)", scl_pin, sda_pin, hw->oled_fps);
 
     memset(&s_i2c_ctx, 0, sizeof(s_i2c_ctx));
     u8g2_esp32_i2c_config_t i2c_cfg = {
         .i2c_port = 0,
         .sda_pin = sda_pin,
         .scl_pin = scl_pin,
-        .clk_hz = 400000,
+        .clk_hz = (hw->oled_fps > 30) ? 800000 : 400000,
         .dev_addr_7bit = 0x3C,
         .timeout_ms = 15,
         .reset_pin = U8G2_ESP32_PIN_UNUSED,

@@ -5,6 +5,7 @@
 
 #include "dsp_meter.h"
 #include <math.h>
+#include "storage/hw_config.h"
 
 void dsp_meter_init(dsp_meter_t *meter, float sample_rate)
 {
@@ -86,10 +87,19 @@ void dsp_meter_update_output(dsp_meter_t *meter, const float *buf_l, const float
     meter->out_peak_r = (max_r > meter->out_peak_r) ? max_r : (meter->out_peak_r * decay);
     meter->out_rms_l = (rms_l > meter->out_rms_l) ? rms_l : (meter->out_rms_l * decay);
     meter->out_rms_r = (rms_r > meter->out_rms_r) ? rms_r : (meter->out_rms_r * decay);
+}
 
-    // Capture mono waveform samples into rolling visualizer buffer
+void dsp_meter_update_waveform(dsp_meter_t *meter, const float *buf_l, const float *buf_r, size_t num_samples, float gain)
+{
+    if (!meter || num_samples == 0) return;
+    if (gain <= 0.0f) gain = 1.0f;
+
     for (size_t i = 0; i < num_samples; i++) {
-        meter->wave_buf[meter->wave_idx++] = (buf_l[i] + buf_r[i]) * 0.5f;
+        float mono = (buf_l[i] + buf_r[i]) * 0.5f * gain;
+        if (mono > 1.0f) mono = 1.0f;
+        else if (mono < -1.0f) mono = -1.0f;
+
+        meter->wave_buf[meter->wave_idx++] = mono;
         if (meter->wave_idx >= DSP_METER_WAVE_LEN) {
             meter->wave_idx = 0;
         }
@@ -105,6 +115,8 @@ void dsp_meter_update_pcm(dsp_meter_t *meter, const uint8_t *pcm, size_t bytes, 
 
     float max_l = 0.0f, max_r = 0.0f;
     float sum_l = 0.0f, sum_r = 0.0f;
+    const hw_config_t *hw = hw_config_get();
+    float scope_gain = hw ? hw->scope_gain : 2.0f;
 
     if (bit_depth == 16) {
         const int16_t *src = (const int16_t *)pcm;
@@ -112,7 +124,10 @@ void dsp_meter_update_pcm(dsp_meter_t *meter, const uint8_t *pcm, size_t bytes, 
         for (size_t i = 0; i < num_samples; i++) {
             float l = (float)src[2 * i] * norm16;
             float r = (float)src[2 * i + 1] * norm16;
-            meter->wave_buf[meter->wave_idx++] = (l + r) * 0.5f;
+            float mono = (l + r) * 0.5f * scope_gain;
+            if (mono > 1.0f) mono = 1.0f;
+            else if (mono < -1.0f) mono = -1.0f;
+            meter->wave_buf[meter->wave_idx++] = mono;
             if (meter->wave_idx >= DSP_METER_WAVE_LEN) {
                 meter->wave_idx = 0;
             }
@@ -131,7 +146,10 @@ void dsp_meter_update_pcm(dsp_meter_t *meter, const uint8_t *pcm, size_t bytes, 
         for (size_t i = 0; i < num_samples; i++) {
             float l = (float)(src[2 * i] >> 8) * norm24;
             float r = (float)(src[2 * i + 1] >> 8) * norm24;
-            meter->wave_buf[meter->wave_idx++] = (l + r) * 0.5f;
+            float mono = (l + r) * 0.5f * scope_gain;
+            if (mono > 1.0f) mono = 1.0f;
+            else if (mono < -1.0f) mono = -1.0f;
+            meter->wave_buf[meter->wave_idx++] = mono;
             if (meter->wave_idx >= DSP_METER_WAVE_LEN) {
                 meter->wave_idx = 0;
             }
@@ -180,8 +198,9 @@ void dsp_meter_get_waveform(dsp_meter_t *meter, float *out_samples, size_t count
     if (!meter || !out_samples || count == 0) return;
     if (count > DSP_METER_WAVE_LEN) count = DSP_METER_WAVE_LEN;
 
-    // Decay towards silence if idle/silent
-    if (meter->out_peak_l < 0.001f && meter->out_peak_r < 0.001f) {
+    // Decay towards silence if idle/silent across both input and output (-80 dBFS)
+    if (meter->in_peak_l < 0.0001f && meter->in_peak_r < 0.0001f &&
+        meter->out_peak_l < 0.0001f && meter->out_peak_r < 0.0001f) {
         for (size_t i = 0; i < DSP_METER_WAVE_LEN; i++) {
             meter->wave_buf[i] *= 0.85f;
         }

@@ -7,6 +7,7 @@
 #include <string.h>
 #include <math.h>
 #include "esp_log.h"
+#include "storage/hw_config.h"
 
 static const char *TAG = "DSP_ENGINE";
 
@@ -159,11 +160,16 @@ void dsp_engine_process(dsp_engine_t *engine, float *buf_l, float *buf_r, size_t
 {
     if (num_samples == 0) return;
 
+    const hw_config_t *hw = hw_config_get();
+    float scope_gain = hw ? hw->scope_gain : 2.0f;
+    bool scope_pre = hw ? hw->scope_pre_vol : true;
+
     // 1. Input Metering (capture clean input)
     dsp_meter_update_input(&engine->meter, buf_l, buf_r, num_samples);
 
     // If Bit-Perfect Bypass is active, skip all DSP calculations!
     if (engine->config.bit_perfect_bypass) {
+        dsp_meter_update_waveform(&engine->meter, buf_l, buf_r, num_samples, scope_gain);
         dsp_meter_update_output(&engine->meter, buf_l, buf_r, num_samples);
         return;
     }
@@ -204,6 +210,11 @@ void dsp_engine_process(dsp_engine_t *engine, float *buf_l, float *buf_r, size_t
     // 12. Lookahead Brickwall Peak Limiter
     dsp_limiter_process(&engine->limiter, buf_l, buf_r, num_samples);
 
+    // Capture PRE-Master Volume waveform for oscilloscope/visualizers
+    if (scope_pre) {
+        dsp_meter_update_waveform(&engine->meter, buf_l, buf_r, num_samples, scope_gain);
+    }
+
     // 13. Master Volume Scaling
     float vol = engine->master_vol_linear;
     if (vol != 1.0f) {
@@ -213,6 +224,11 @@ void dsp_engine_process(dsp_engine_t *engine, float *buf_l, float *buf_r, size_t
         }
     }
 
-    // 14. Output Metering (capture final processed audio)
+    // Capture POST-Master Volume waveform if explicitly requested
+    if (!scope_pre) {
+        dsp_meter_update_waveform(&engine->meter, buf_l, buf_r, num_samples, scope_gain);
+    }
+
+    // 14. Output Metering (capture final processed audio for true DAC output meters)
     dsp_meter_update_output(&engine->meter, buf_l, buf_r, num_samples);
 }

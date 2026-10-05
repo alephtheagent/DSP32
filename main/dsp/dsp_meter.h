@@ -30,6 +30,7 @@ void dsp_meter_init(dsp_meter_t *meter, float sample_rate);
 void dsp_meter_set_sample_rate(dsp_meter_t *meter, float sample_rate);
 void dsp_meter_update_input(dsp_meter_t *meter, const float *buf_l, const float *buf_r, size_t num_samples);
 void dsp_meter_update_output(dsp_meter_t *meter, const float *buf_l, const float *buf_r, size_t num_samples);
+void dsp_meter_update_waveform(dsp_meter_t *meter, const float *buf_l, const float *buf_r, size_t num_samples, float gain);
 void dsp_meter_update_pcm(dsp_meter_t *meter, const uint8_t *pcm, size_t bytes, uint8_t bit_depth);
 void dsp_meter_get_values(dsp_meter_t *meter, dsp_meter_values_t *out_values);
 void dsp_meter_get_waveform(dsp_meter_t *meter, float *out_samples, size_t count);

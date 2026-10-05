@@ -30,6 +30,10 @@ static void set_defaults(void)
     strncpy(s_config.wifi_pass, HW_DEFAULT_WIFI_PASS, sizeof(s_config.wifi_pass) - 1);
     s_config.wifi_pass[sizeof(s_config.wifi_pass) - 1] = '\0';
     s_config.wifi_channel = HW_DEFAULT_WIFI_CHANNEL;
+    s_config.oled_fps = HW_DEFAULT_OLED_FPS;
+    s_config.web_scope_fps = HW_DEFAULT_WEB_SCOPE_FPS;
+    s_config.scope_gain = HW_DEFAULT_SCOPE_GAIN;
+    s_config.scope_pre_vol = HW_DEFAULT_SCOPE_PRE_VOL;
 }
 
 esp_err_t hw_config_init(void)
@@ -44,18 +48,17 @@ esp_err_t hw_config_init(void)
         err = nvs_get_blob(handle, NVS_BLOB_KEY, &loaded, &sz);
         if (err == ESP_OK && sz == sizeof(hw_config_t)) {
             s_config = loaded;
-            ESP_LOGI(TAG, "Hardware config loaded from NVS: I2S (BCK=%d, DIN=%d, WS=%d), OLED (SCL=%d, SDA=%d), LED=%d, BTN=%d",
+            ESP_LOGI(TAG, "Hardware config loaded from NVS: I2S (BCK=%d, DIN=%d, WS=%d), OLED (SCL=%d, SDA=%d, %d FPS), SCOPE (gain=%.1fx, pre_vol=%d)",
                      s_config.i2s_bck_gpio, s_config.i2s_din_gpio, s_config.i2s_ws_gpio,
-                     s_config.oled_scl_gpio, s_config.oled_sda_gpio,
-                     s_config.neopixel_gpio, s_config.boot_button_gpio);
+                     s_config.oled_scl_gpio, s_config.oled_sda_gpio, s_config.oled_fps,
+                     s_config.scope_gain, (int)s_config.scope_pre_vol);
         } else {
             ESP_LOGW(TAG, "Hardware config in NVS invalid or size mismatch, using factory defaults");
         }
         nvs_close(handle);
     } else {
-        ESP_LOGI(TAG, "No custom hardware config in NVS, using factory defaults: I2S (BCK=%d, DIN=%d, WS=%d), OLED (SCL=%d, SDA=%d)",
-                 s_config.i2s_bck_gpio, s_config.i2s_din_gpio, s_config.i2s_ws_gpio,
-                 s_config.oled_scl_gpio, s_config.oled_sda_gpio);
+        ESP_LOGI(TAG, "No custom hardware config in NVS, using factory defaults: I2S (BCK=%d, DIN=%d, WS=%d), OLED (%d FPS)",
+                 s_config.i2s_bck_gpio, s_config.i2s_din_gpio, s_config.i2s_ws_gpio, s_config.oled_fps);
     }
 
     return ESP_OK;
@@ -82,7 +85,12 @@ esp_err_t hw_config_set(const hw_config_t *cfg)
         return ESP_ERR_INVALID_ARG;
     }
 
-    s_config = *cfg;
+    hw_config_t validated = *cfg;
+    if (validated.oled_fps < 15 || validated.oled_fps > 60) validated.oled_fps = HW_DEFAULT_OLED_FPS;
+    if (validated.web_scope_fps < 10 || validated.web_scope_fps > 60) validated.web_scope_fps = HW_DEFAULT_WEB_SCOPE_FPS;
+    if (validated.scope_gain < 0.25f || validated.scope_gain > 10.0f) validated.scope_gain = HW_DEFAULT_SCOPE_GAIN;
+
+    s_config = validated;
 
     nvs_handle_t handle;
     esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READWRITE, &handle);
