@@ -318,7 +318,6 @@ static void oled_task(void *pvParameters)
         u8g2_SendBuffer(&s_u8g2);
 
         // Dynamic refresh delay based on configured FPS (15..60)
-        const hw_config_t *hw_run = hw_config_get();
         int target_fps = (hw_run && hw_run->oled_fps >= 15 && hw_run->oled_fps <= 60) ? hw_run->oled_fps : 30;
         int delay_ms = 1000 / target_fps;
         if (delay_ms < 10) delay_ms = 10;
