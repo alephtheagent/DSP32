@@ -245,6 +245,18 @@ static void oled_task(void *pvParameters)
     char preset_name[32];
 
     while (1) {
+        const hw_config_t *hw_run = hw_config_get();
+        if (hw_run && !hw_run->oled_enabled) {
+            if (s_is_active) {
+                u8g2_ClearDisplay(&s_u8g2);
+                u8g2_SetPowerSave(&s_u8g2, 1);
+                s_is_active = false;
+                ESP_LOGI(TAG, "SSD1306 OLED display disabled, entering power save");
+            }
+            vTaskDelay(pdMS_TO_TICKS(500));
+            continue;
+        }
+
         // If display is not active, attempt probe every 2 seconds
         if (!s_is_active) {
             if (s_i2c_ctx.bus_handle != NULL) {
@@ -353,6 +365,17 @@ esp_err_t oled_display_init(void)
 
     // Initial bus init via u8x8 MSG BYTE INIT
     u8x8_byte_esp32_hw_i2c(u8g2_GetU8x8(&s_u8g2), U8X8_MSG_BYTE_INIT, 0, NULL);
+
+    if (!hw->oled_enabled) {
+        ESP_LOGI(TAG, "SSD1306 OLED disabled by configuration (sleeping display)");
+        if (s_i2c_ctx.bus_handle != NULL) {
+            esp_err_t probe_err = i2c_master_probe((i2c_master_bus_handle_t)s_i2c_ctx.bus_handle, 0x3C, 15);
+            if (probe_err == ESP_OK) {
+                u8g2_InitDisplay(&s_u8g2);
+                u8g2_SetPowerSave(&s_u8g2, 1);
+            }
+        }
+    }
 
     s_is_active = false;
 
