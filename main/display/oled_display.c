@@ -14,6 +14,7 @@
 #include "driver/i2c_master.h"
 
 #include "u8g2.h"
+#include "u8x8.h"
 #include "esp32_hw_i2c.h"
 
 #include "storage/hw_config.h"
@@ -367,14 +368,7 @@ esp_err_t oled_display_init(void)
     u8x8_byte_esp32_hw_i2c(u8g2_GetU8x8(&s_u8g2), U8X8_MSG_BYTE_INIT, 0, NULL);
 
     if (!hw->oled_enabled) {
-        ESP_LOGI(TAG, "SSD1306 OLED disabled by configuration (sleeping display)");
-        if (s_i2c_ctx.bus_handle != NULL) {
-            esp_err_t probe_err = i2c_master_probe((i2c_master_bus_handle_t)s_i2c_ctx.bus_handle, 0x3C, 15);
-            if (probe_err == ESP_OK) {
-                u8g2_InitDisplay(&s_u8g2);
-                u8g2_SetPowerSave(&s_u8g2, 1);
-            }
-        }
+        ESP_LOGI(TAG, "SSD1306 OLED disabled by configuration");
     }
 
     s_is_active = false;
