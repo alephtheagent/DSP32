@@ -111,7 +111,8 @@ esp_err_t i2s_dac_set_clock(uint32_t sample_rate, uint8_t bit_depth)
 esp_err_t i2s_dac_write(const void *src, size_t size, size_t *bytes_written, uint32_t timeout_ms)
 {
     if (!s_tx_chan) return ESP_ERR_INVALID_STATE;
-    return i2s_channel_write(s_tx_chan, src, size, bytes_written, pdMS_TO_TICKS(timeout_ms));
+    TickType_t ticks = (timeout_ms == portMAX_DELAY) ? portMAX_DELAY : pdMS_TO_TICKS(timeout_ms);
+    return i2s_channel_write(s_tx_chan, src, size, bytes_written, ticks);
 }
 
 esp_err_t i2s_dac_reconfig_buffer(uint32_t dma_desc_num, uint32_t dma_frame_num)
